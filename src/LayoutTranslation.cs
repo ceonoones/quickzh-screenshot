@@ -28,9 +28,11 @@ namespace QuickZh {
             var s = settings.Clone();
             s.Prompt += "\n本次输入是带有段落编号的 JSON。请结合全部段落理解上下文，然后分别翻译每个段落，用于在截图原位置替换文字。必须保留所有 id，一一对应，不要合并、拆分或遗漏段落。响应格式必须为 JSON 对象：{\"blocks\":[{\"id\":0,\"text\":\"中文译文\"}]}。每个对象先写 id 再写 text。不要 Markdown，不要解释，JSON 中的 text 只包含译文。";
             s.Prompt += "\n每个 id 是独立文字区域，可能是一行文字或一个界面标签。结合相邻区域理解句意，但译文必须留在各自区域内。界面菜单、按钮使用简洁自然的中文，避免冗长解释；不要把界面图标或装饰符号写进译文，不要添加原文没有的箭头、勾选符号等。品牌名、网址、型号可按语境保留。";
-            var input = new List<BlockReply>(); foreach (var block in blocks) input.Add(new BlockReply { id = block.Id,text = block.Text });
+            s.Prompt += "\n文字区域已经按版式合并为完整标题、段落或标签。请按完整句意翻译，不要逐词对应或拆散短语；保留原意并尽量精炼。正文不要照搬原图的每行硬换行。heading 为 true 时，line_chars 给出每行约能容纳的中文字数：优先写成简洁标题；若需要多行，请在完整词组或语义停顿处用 JSON 的换行转义主动分行，每行尽量不超出 line_chars，不要把一个中文词拆到两行。不要为了凑行宽添加内容。";
+            var input = new List<object>();
+            foreach (var block in blocks) input.Add(new { id = block.Id,text = block.Text,heading = block.Lines>=2 && block.FontPixels>=28 && block.Text.Length<100,line_chars = Math.Max(2,(int)(block.Bounds.Width/Math.Max(1,block.FontPixels))) });
             var pending = new StringBuilder(); var delivered = new HashSet<int>();
-            string raw = await Translate(s,Json.Stringify(new LayoutReply {blocks=input}),delta=> {
+            string raw = await Translate(s,Json.Stringify(new {blocks=input}),delta=> {
                 pending.Append(delta);
                 foreach (Match match in CompleteBlock.Matches(pending.ToString())) {
                     int id = Int32.Parse(match.Groups[1].Value);

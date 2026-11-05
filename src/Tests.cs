@@ -16,6 +16,20 @@ namespace QuickZh {
         static string Frame(string text) { return "data: " + Json.Stringify(new { choices = new [] { new { delta = new { content = text } } } }) + "\n\n"; }
         [STAThread]
         static int Main(string[] args) {
+            if (Array.IndexOf(args,"--translate-image")>=0) {
+                int index=Array.IndexOf(args,"--translate-image");
+                try {
+                    using (var doc=new CaptureDocument(new Bitmap(args[index+1]))) {
+                        var watch=System.Diagnostics.Stopwatch.StartNew();doc.Blocks.AddRange(Ocr.RecognizeDetailed(doc.Original,"eng",CancellationToken.None).Blocks);
+                        var reply=ApiClient.TranslateLayout(Settings.Load(),doc.Blocks,null,CancellationToken.None).GetAwaiter().GetResult();
+                        foreach (var b in reply.blocks) doc.Blocks[b.id].Translation=b.text;
+                        File.WriteAllText(args[index+2]+".json",Json.Stringify(reply),Encoding.UTF8);
+                        using (var image=doc.Export(false,doc.Original.Size,0)) image.Save(args[index+2]+".png");
+                        Console.WriteLine("LIVE translated regions="+doc.Blocks.Count+" seconds="+watch.Elapsed.TotalSeconds.ToString("0.00"));
+                    }return 0;
+                } catch (Exception ex) { Console.WriteLine("Image translation failed: "+ex.GetType().Name);return 2; }
+            }
+            if (Array.IndexOf(args,"--render-demo")>=0) { RenderDemo(args[Array.IndexOf(args,"--render-demo")+1]);return 0; }
             if (Array.IndexOf(args,"--render4")>=0 || Array.IndexOf(args,"--render-toolbar")>=0) { RenderVersionFour();RenderToolbars();return 0; }
             if (Array.IndexOf(args,"--layout-examples")>=0 || Array.IndexOf(args,"--live-examples")>=0) {
                 try { ExampleLayouts(Array.IndexOf(args,"--live-examples")>=0);return 0; } catch (Exception ex) { Console.WriteLine(ex);return 2; }
@@ -53,6 +67,21 @@ namespace QuickZh {
                 } catch (Exception ex) { Console.WriteLine("LIVE: " + ex.Message); return 2; }
             }
             Environment.SetEnvironmentVariable("SCREENZH_DATA", Path.Combine(Path.GetTempPath(), "quickzh-tests-路径-" + Guid.NewGuid().ToString("N")));
+            if (Array.IndexOf(args,"--diagnose-image")>=0) {
+                int index=Array.IndexOf(args,"--diagnose-image");
+                using (var doc=new CaptureDocument(new Bitmap(args[index+1]))) {
+                    Ocr.Prepare();
+                    var diagnosed=Array.IndexOf(args,"--raw")>=0?(OcrResult)typeof(Ocr).GetMethod("RecognizeNeural",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[] {doc.Original,"eng",CancellationToken.None}):Ocr.RecognizeDetailed(doc.Original,"eng",CancellationToken.None);
+                    doc.Blocks.AddRange(diagnosed.Blocks);
+                    foreach (var block in doc.Blocks) Console.WriteLine("BLOCK "+block.Id+" "+Json.Stringify(new {text=block.Text,bounds=block.Bounds,font=block.FontPixels,estimated=TranslationLayout.EstimateFont(block),fg=block.Foreground.ToArgb(),advance=block.LineAdvance,lines=block.Lines,center=block.CenterText,list=block.IsList,layout=block.LayoutBounds,bg=block.Background.ToArgb(),ink=block.Ink.Count,obstacles=block.Obstacles.Count}));
+                    if (args.Length>index+3 && !args[index+2].StartsWith("--")) {
+                        var reply=ApiClient.ParseLayout(File.ReadAllText(args[index+2],Encoding.UTF8),doc.Blocks.Count);
+                        foreach (var block in reply.blocks) doc.Blocks[block.id].Translation=block.text;
+                        foreach (var block in doc.Blocks) foreach (var line in TranslationLayout.Compose(block)) Console.WriteLine("LINE "+block.Id+" "+line.Text+" font="+line.Pixels+" at="+line.X+","+line.Y+" ink="+line.Ink.Size);
+                        using (var bitmap=doc.Export(false,doc.Original.Size,0)) bitmap.Save(args[index+3]);
+                    }
+                }return 0;
+            }
             if (Array.IndexOf(args,"--ui-sample")>=0 || Array.IndexOf(args,"--render-sample")>=0) {
                 Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Program.AppIcon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
                 var editor=new CaptureEditor(new Bitmap(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"测试样本","导航原图.png")),new Rectangle(80,80,1066,175),new Settings(),0,null,null,new System.Collections.Generic.Dictionary<string,string>(),true);
@@ -161,6 +190,7 @@ namespace QuickZh {
                 TestCompletionActions();
                 TestObjectEditing();
                 TestExampleTypography();
+                TestGeneralLayout();
                 Console.WriteLine("ALL " + passed + " CHECKS PASSED"); return 0;
             } catch (Exception ex) { Console.WriteLine(ex.ToString()); return 1; }
         }
@@ -462,17 +492,154 @@ namespace QuickZh {
                 doc.Blocks.AddRange(Ocr.RecognizeDetailed(doc.Original,"eng",CancellationToken.None).Blocks);
                 var reply=ApiClient.ParseLayout(File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"测试样本",name+"译文.json"),Encoding.UTF8),doc.Blocks.Count);
                 foreach (var block in reply.blocks) doc.Blocks[block.id].Translation=block.text;
-                Check(doc.Blocks.Count==6,"example distinct paragraphs and labels "+name);
+                Check(doc.Blocks.Count==(name=="正文"?6:5),"example distinct paragraphs and labels "+name);
                 foreach (var block in doc.Blocks) {
                     var lines=TranslationLayout.Compose(block);Check(lines.Count>0 && lines[0].Pixels>=block.FontPixels*0.98F,"example preserves estimated font size "+name+" "+block.Id);
                     if (block.CenterText) { float center=block.LayoutBounds.Left+block.LayoutBounds.Width/2;Check(Math.Abs(lines[0].X+lines[0].Ink.Width/2-center)<1,"button translation centered "+block.Text); }
                 }
-                Check(doc.Blocks[1+(name=="横幅"?1:0)].Lines==2,"wrapped prose retains two source lines "+name);
+                Check(doc.Blocks[1].Lines==2,"wrapped prose retains two source lines "+name);
                 using (var output=doc.Export(false,doc.Original.Size,0)) {
                     if (name=="正文") { Check(SameRegion(doc.Original,output,new Rectangle(94,254,16,111)),"body bullet symbols remain unchanged");Check(SameRegion(doc.Original,output,new Rectangle(669,424,25,22)),"body link arrow remains unchanged"); }
                     else { Check(SameRegion(doc.Original,output,new Rectangle(1250,0,650,680)),"hero illustration remains unchanged");Check(SameRegion(doc.Original,output,new Rectangle(1020,482,26,28)),"hero link arrow remains unchanged");Check(SameRegion(doc.Original,output,new Rectangle(310,461,330,3)),"button border remains unchanged"); }
                 }
             }
+        }
+        static OcrBlock PlaceSource(Bitmap image,string text,float x,float y,float pixels,Color color,Color background) {
+            using (var g=Graphics.FromImage(image)) using (var family=new FontFamily("Arial")) using (var path=new System.Drawing.Drawing2D.GraphicsPath()) using (var format=(StringFormat)StringFormat.GenericTypographic.Clone()) using (var brush=new SolidBrush(color)) {
+                path.AddString(text,family,(int)FontStyle.Regular,pixels,new PointF(x,y),format);g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;g.FillPath(brush,path);
+                var block=new OcrBlock {Text=text,Bounds=path.GetBounds(),Background=background,Foreground=color,Lines=1};block.Ink.Add(block.Bounds);return block;
+            }
+        }
+        static void TestGeneralLayout() {
+            foreach (int pixels in new [] {24,44,64}) foreach (bool dark in new [] {false,true}) using (var image=new Bitmap(1200,640)) {
+                Color bg=dark?Color.FromArgb(18,24,32):Color.FromArgb(246,248,251),fg=dark?Color.White:Color.FromArgb(20,27,38);
+                using (var g=Graphics.FromImage(image)) g.Clear(bg);
+                var found=new OcrResult();float x=35;
+                foreach (string word in new [] {"Planning","rare","systems"}) { var block=PlaceSource(image,word,x,25,pixels,fg,bg);found.Blocks.Add(block);x=block.Bounds.Right+pixels*0.28F; }
+                found.Blocks.Add(PlaceSource(image,"with clarity and purpose",35,25+pixels*1.08F,pixels,fg,bg));
+                found.Blocks.Add(PlaceSource(image,"The next paragraph remains separate.",35,25+pixels*2.75F,Math.Max(14,pixels*0.6F),fg,bg));
+                TranslationLayout.Prepare(image,found);
+                Check(found.Blocks.Count==2 && found.Blocks[0].Lines==2,"general wrapped heading joins across font and theme "+pixels+dark);
+                Check(!found.Blocks[0].CenterText && !found.Blocks[0].IsList,"plain heading is not a button or list "+pixels+dark);
+                found.Blocks[0].Translation="让复杂的工作变得清晰自然";
+                var lines=TranslationLayout.Compose(found.Blocks[0]);bool inside=true;
+                foreach (var line in lines) inside &= found.Blocks[0].LayoutBounds.Contains(new RectangleF(line.X,line.Y,line.Ink.Width,line.Ink.Height));
+                Check(inside && lines[0].Pixels>=found.Blocks[0].FontPixels*0.98F,"heading preserves size inside safe region "+pixels+dark);
+            }
+            using (var image=new Bitmap(800,250)) {
+                using (var g=Graphics.FromImage(image)) g.Clear(Color.White);
+                var found=new OcrResult();
+                foreach (float x in new [] {30F,440F}) {
+                    found.Blocks.Add(PlaceSource(image,"A clear paragraph starts here",x,25,20,Color.Black,Color.White));
+                    found.Blocks.Add(PlaceSource(image,"and continues on its next line",x,49,20,Color.Black,Color.White));
+                }
+                found.Blocks.Sort((a,b)=>a.Bounds.Top.CompareTo(b.Bounds.Top));TranslationLayout.Prepare(image,found);
+                Check(found.Blocks.Count==2 && found.Blocks[0].Lines==2 && found.Blocks[1].Lines==2,"paragraph grouping respects two separate columns");
+            }
+            using (var clean=new Bitmap(640,260)) {
+                for (int y=0;y<clean.Height;y++) for (int x=0;x<clean.Width;x++) clean.SetPixel(x,y,Color.FromArgb(20+x*80/640,30+y*40/260,25+x*30/640));
+                using (var source=(Bitmap)clean.Clone()) {
+                    var block=PlaceSource(source,"Smooth gradient behind text",35,65,38,Color.White,Color.FromArgb(40,50,40));block.Translation="平滑背景";
+                    using (var erased=TextErasure.Render(source,new System.Collections.Generic.List<OcrBlock> {block})) {
+                        double error=0;int count=0;var r=Rectangle.Ceiling(block.Bounds);r.Inflate(2,2);
+                        for (int y=r.Top;y<r.Bottom;y++) for (int x=r.Left;x<r.Right;x++) { var a=clean.GetPixel(x,y);var b=erased.GetPixel(x,y);error+=Math.Abs(a.R-b.R)+Math.Abs(a.G-b.G)+Math.Abs(a.B-b.B);count+=3; }
+                        Check(error/count<1.8,"glyph erasure reconstructs a varying gradient without a flat patch");
+                        Check(SameRegion(source,erased,new Rectangle(0,0,640,50)) && SameRegion(source,erased,new Rectangle(0,160,640,100)),"glyph erasure leaves unrelated pixels unchanged");
+                    }
+                }
+            }
+            var longBlock=new OcrBlock { Text="Source label",Translation=new string('译',180),Bounds=new RectangleF(20,20,240,38),LayoutBounds=new RectangleF(20,20,240,42),FontPixels=36,LineAdvance=44,FirstLineHeight=38,Lines=1 };
+            var composed=TranslationLayout.Compose(longBlock);bool contained=true,noOverlap=true;
+            for (int i=0;i<composed.Count;i++) {
+                var line=composed[i];var r=new RectangleF(line.X,line.Y,line.Ink.Width,line.Ink.Height);contained &= longBlock.LayoutBounds.Contains(r);
+                for (int j=0;j<i;j++) { var other=composed[j];noOverlap &= !r.IntersectsWith(new RectangleF(other.X,other.Y,other.Ink.Width,other.Ink.Height)); }
+            }
+            Check(contained && noOverlap,"long translations remain bounded and lines never overlap");
+            using (var doc=new CaptureDocument(new Bitmap(440,140))) {
+                using (var g=Graphics.FromImage(doc.Original)) g.Clear(Color.White);
+                var first=new OcrBlock { Id=0,Text="First",Translation="保留完整文字",Bounds=new RectangleF(20,20,180,28),LayoutBounds=new RectangleF(20,20,180,32),FontPixels=24,Foreground=Color.Red,Lines=1 };
+                var second=new OcrBlock { Id=1,Text="Second",Translation="第二行",Bounds=new RectangleF(20,60,180,28),LayoutBounds=new RectangleF(20,60,180,32),FontPixels=24,Lines=1 };
+                first.Ink.Add(first.Bounds);second.Ink.Add(new RectangleF(20,30,180,58));doc.Blocks.Add(first);doc.Blocks.Add(second);
+                using (var output=doc.Export(false,doc.Original.Size,0)) { int red=0;for (int y=20;y<48;y++) for (int x=20;x<200;x++) { var c=output.GetPixel(x,y);if (c.R>180 && c.G<100) red++; }Check(red>200,"all source masks are cleared before any translated text is painted"); }
+                using (var firstOutput=doc.Export(false,doc.Original.Size,0)) { first.Translation=first.Text;using (var sourceView=doc.Export(false,doc.Original.Size,0)) Check(!SameRegion(firstOutput,sourceView,new Rectangle(20,20,180,28)),"erasure cache tracks untranslated and unchanged source regions"); }
+            }
+        }
+        static void RenderDemo(string directory) {
+            Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Program.AppIcon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            Directory.CreateDirectory(directory);string frames=Path.Combine(directory,"frames");Directory.CreateDirectory(frames);
+            var source=new Bitmap(1200,520);
+            using (var g=Graphics.FromImage(source)) {
+                g.Clear(Color.FromArgb(14,23,40));
+                using (var brush=new SolidBrush(Color.FromArgb(28,42,64))) g.FillRectangle(brush,785,60,355,345);
+                using (var brush=new SolidBrush(Color.FromArgb(80,220,190))) g.FillEllipse(brush,850,106,205,205);
+                using (var brush=new SolidBrush(Color.FromArgb(143,124,255))) g.FillEllipse(brush,965,225,105,105);
+                using (var pen=new Pen(Color.FromArgb(220,238,246),3)) { g.DrawEllipse(pen,835,90,238,238);g.DrawLine(pen,817,364,1107,364); }
+                using (var brush=new SolidBrush(Color.FromArgb(112,93,238))) g.FillRectangle(brush,48,350,280,60);
+            }
+            PlaceSource(source,"FIELD NOTES",48,29,18,Color.FromArgb(80,220,190),Color.FromArgb(14,23,40));
+            PlaceSource(source,"Make room for",48,92,48,Color.White,Color.FromArgb(14,23,40));
+            PlaceSource(source,"your next good idea.",48,147,48,Color.White,Color.FromArgb(14,23,40));
+            PlaceSource(source,"A calmer space to read, think and share.",48,237,24,Color.FromArgb(211,223,240),Color.FromArgb(14,23,40));
+            PlaceSource(source,"Turn the page when you are ready.",48,272,24,Color.FromArgb(211,223,240),Color.FromArgb(14,23,40));
+            PlaceSource(source,"Explore the guide",91,365,24,Color.White,Color.FromArgb(112,93,238));
+            PlaceSource(source,"READ / THINK / SHARE",48,463,17,Color.FromArgb(145,165,190),Color.FromArgb(14,23,40));
+            using (var editor=new CaptureEditor(source,new Rectangle(30,30,1200,520),new Settings(),2,null,null,new System.Collections.Generic.Dictionary<string,string>(),true)) {
+                editor.Document.Blocks.AddRange(Ocr.RecognizeDetailed(editor.Document.Original,"eng",CancellationToken.None).Blocks);
+                foreach (var b in editor.Document.Blocks) {
+                    if (b.Text.Contains("FIELD")) b.Translation="灵感手记";
+                    else if (b.Text.Contains("Make room")) b.Translation="给下一个好点子\n留一点空间。";
+                    else if (b.Text.Contains("your next")) b.Translation="留一点空间。";
+                    else if (b.Text.Contains("calmer")) b.Translation="在这里，安心阅读、思考与分享。"+(b.Text.Contains("Turn")?"\n准备好了，就翻开新的一页。":"");
+                    else if (b.Text.Contains("Turn")) b.Translation="准备好了，就翻开新的一页。";
+                    else if (b.Text.Contains("Explore")) b.Translation="阅读指南";
+                    else if (b.Text.Contains("READ")) b.Translation="阅读 / 思考 / 分享";
+                    else b.Translation=b.Text;
+                }
+                editor.Document.Translation="演示译文";
+                using (var image=editor.Document.Export(true,source.Size,0)) image.Save(Path.Combine(directory,"source.png"));
+                using (var image=editor.Document.Export(false,source.Size,0)) image.Save(Path.Combine(directory,"translated.png"));
+                editor.Location=new Point(-20000,-20000);editor.Show();editor.Toolbar.Location=new Point(-20000,-20000);editor.Toolbar.Show(editor);Application.DoEvents();
+                string icons=Path.Combine(directory,"icons");Directory.CreateDirectory(icons);
+                foreach (Control c in editor.Toolbar.Controls[0].Controls) {
+                    var button=c as IconButton;if (button==null) continue;
+                    using (var glyph=new IconButton(button.Text,button.Glyph)) using (var bitmap=new Bitmap(48,48)) { glyph.ValueText=button.ValueText;glyph.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(icons,button.Glyph+".png")); }
+                }
+                using (var glyph=new IconButton("显示原文","original")) using (var bitmap=new Bitmap(48,48)) { glyph.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(icons,"original.png")); }
+                int frameIndex=0;var steps=new System.Collections.Generic.List<object>();
+                Action<string,string,bool> frame=(title,caption,toolbar)=> {
+                    editor.MarksChanged();Application.DoEvents();
+                    using (var image=new Bitmap(1320,780)) using (var g=Graphics.FromImage(image)) using (var titleFont=new Font("Microsoft YaHei UI",24,FontStyle.Bold,GraphicsUnit.Pixel)) using (var captionFont=new Font("Microsoft YaHei UI",17,FontStyle.Regular,GraphicsUnit.Pixel)) {
+                        g.Clear(Color.FromArgb(236,241,248));g.DrawString(title,titleFont,Brushes.MidnightBlue,58,17);g.DrawString(caption,captionFont,Brushes.SlateGray,58,56);
+                        using (var canvas=new Bitmap(editor.Width,editor.Height)) { editor.DrawToBitmap(canvas,new Rectangle(Point.Empty,canvas.Size));g.DrawImageUnscaled(canvas,58,100); }
+                        if (toolbar) using (var bar=new Bitmap(editor.Toolbar.Width,editor.Toolbar.Height)) { editor.Toolbar.DrawToBitmap(bar,new Rectangle(Point.Empty,bar.Size));g.DrawImageUnscaled(bar,58+(editor.Width-bar.Width)/2,636); }
+                        g.DrawString("交互示意 · 合成内容，由真实程序离屏渲染",captionFont,Brushes.SlateGray,58,744);
+                        image.Save(Path.Combine(frames,frameIndex.ToString("000")+".png"));
+                        steps.Add(new {title=title,caption=caption});frameIndex++;
+                    }
+                };
+                frame("01 · 外文原图","按 Ctrl + Alt + Q，框选想看的内容。",false);
+                frame("02 · 框选截图","框选结束后自动识别文字，无需再点翻译。",false);
+                editor.ToggleView();frame("03 · 中文直接回到原位","保留背景与图案；标题、正文、按钮分别排版。",true);
+                editor.ToggleView();frame("04 · 随时核对原文","原文 / 译文一键切换，截图和标注继续保留。",true);editor.ToggleView();
+                editor.SelectTool(DrawTool.Arrow);editor.Document.Add(Shape(DrawTool.Arrow,new PointF(705,220),new PointF(515,160)));frame("05 · 箭头与直线","拖动即可标注，颜色和粗细都可以调整。",true);
+                editor.SelectTool(DrawTool.Line);editor.Document.Add(Shape(DrawTool.Line,new PointF(50,318),new PointF(600,318)));frame("06 · 直线和画笔","画笔支持自由笔迹，撤销不影响翻译。",true);
+                editor.SelectTool(DrawTool.Pen);var pen=Shape(DrawTool.Pen,new PointF(620,380),new PointF(658,360));pen.Points.Add(new PointF(690,390));pen.Points.Add(new PointF(730,350));editor.Document.Add(pen);frame("07 · 自由画笔","圈出重点，或者直接手写备注。",true);
+                editor.SelectTool(DrawTool.Rectangle);Mouse(editor.Canvas,"OnMouseDown",36,225);Mouse(editor.Canvas,"OnMouseUp",605,310);Mouse(editor.Canvas,"OnMouseDown",37,340);Mouse(editor.Canvas,"OnMouseUp",340,420);frame("08 · 连续画框","方框工具保持选中，可以一直画，直到主动切换。",true);
+                editor.SelectTool(DrawTool.Ellipse);Mouse(editor.Canvas,"OnMouseDown",835,90);Mouse(editor.Canvas,"OnMouseUp",1075,325);Mouse(editor.Canvas,"OnMouseDown",955,218);Mouse(editor.Canvas,"OnMouseUp",1083,342);frame("09 · 连续画圈","圆圈和方框都可以用移动工具选中、拖动和缩放。",true);
+                var text=new Mark { Tool=DrawTool.Text,Text="这个位置可以修改",FontSize=36,TextWidth=410,Color=Color.FromArgb(80,220,190) };text.Points.Add(new PointF(390,397));editor.Document.Add(text);editor.SelectTool(DrawTool.Move);editor.Canvas.SelectedMark=text;frame("10 · 添加文字","默认 36 像素，添加后可移动、双击编辑。",true);
+                var before=text.Clone();text.MoveFrom(before,45,15);editor.Document.RecordChange(text,before);frame("11 · 拖动文字","拖住文字即可调整位置，原有标注也能一起保留。",true);
+                before=text.Clone();RectangleF bounds;using (var g=editor.Canvas.CreateGraphics()) bounds=text.Bounds(g);text.ResizeFrom(before,bounds,new RectangleF(bounds.X,bounds.Y,bounds.Width*1.15F,bounds.Height*1.15F));editor.Document.RecordChange(text,before);frame("12 · 四角缩放","拖住任意一个角，文字保持比例缩放。",true);
+                editor.SelectTool(DrawTool.Number);Mouse(editor.Canvas,"OnMouseDown",810,85);Mouse(editor.Canvas,"OnMouseDown",1100,365);frame("13 · 连续数字","每点击一次添加下一个序号，撤销后可以复用。",true);
+                editor.SelectTool(DrawTool.Mosaic);Mouse(editor.Canvas,"OnMouseDown",880,230);Mouse(editor.Canvas,"OnMouseUp",1040,330);frame("14 · 马赛克","拖出区域即可遮挡，颗粒大小可调，也能移动和缩放。",true);
+                editor.SelectTool(DrawTool.Protect);Mouse(editor.Canvas,"OnMouseDown",43,25);Mouse(editor.Canvas,"OnMouseUp",250,62);frame("15 · 保留原图","框住要保护的图标或区域，恢复该区域的原始像素。",true);
+                editor.Document.Undo();frame("16 · 撤销","Ctrl + Z 撤销上一步，已有翻译不受影响。",true);editor.Document.Redo();frame("17 · 重做","Ctrl + Y 重做，也可点击图标按钮。",true);
+                editor.SelectTool(DrawTool.Move);editor.Canvas.SelectedMark=text;before=text.Clone();text.Color=Color.FromArgb(250,204,21);text.FontSize=42;editor.Document.RecordChange(text,before);frame("18 · 颜色、粗细和字号","选中标注后调整样式，文字支持自定义字号。",true);
+                frame("19 · 复制原文或译文","复制文字菜单只保留两个选项：原文、译文。",true);
+                frame("20 · 复制截图 / 保存桌面","输出当前视图与标注；成功后自动关闭浮窗。",true);
+                frame("21 · 本次截图已结束","按全局快捷键开始下一次截图；Esc 随时关闭。",false);
+                File.WriteAllText(Path.Combine(directory,"steps.json"),Json.Stringify(steps),Encoding.UTF8);editor.Close();
+            }
+            Console.WriteLine("Demo assets rendered from the application.");
         }
         static void TestCompletionActions() {
             var previous=Clipboard.GetDataObject();

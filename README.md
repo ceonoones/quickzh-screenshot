@@ -2,17 +2,19 @@
 
 在 Windows 上框选文字，本地 OCR 识别后交给大模型翻译，让中文直接显示在截图的原文字位置，并支持截图标注、复制和保存。
 
-**当前版本：v1.0.0 预览版。** 适用于 Windows 10 / 11 x64，使用 .NET Framework 4.8；尚未完成多台电脑和不同 DPI / 多显示器组合的实机验收。
+**当前版本：v1.0.1 预览版。** 适用于 Windows 10 / 11 x64，使用 .NET Framework 4.8；尚未完成多台电脑和不同 DPI / 多显示器组合的实机验收。
 
-[下载程序](https://github.com/ceonoones/quickzh-screenshot/releases/tag/v1.0.0) · [使用说明](docs/使用说明.md) · [更新日志](CHANGELOG.md) · [反馈问题](https://github.com/ceonoones/quickzh-screenshot/issues)
+[下载程序](https://github.com/ceonoones/quickzh-screenshot/releases/tag/v1.0.1) · [使用说明](docs/使用说明.md) · [更新日志](CHANGELOG.md) · [反馈问题](https://github.com/ceonoones/quickzh-screenshot/issues)
 
-![实际工具栏离屏渲染，展示不同截图宽度的自动换行](docs/images/工具栏自适应预览.png)
+[![动态演示：原文、框选自动翻译、标注和导出](site/assets/demo.gif)](https://ceonoones.github.io/quickzh-screenshot/)
 
-图片由本程序实际离屏绘制；白色区域为截图区域示意，不是第三方客户端截图。
+[打开可交互演示](https://ceonoones.github.io/quickzh-screenshot/) · [观看完整视频](https://ceonoones.github.io/quickzh-screenshot/assets/demo.mp4)
+
+演示完整展示原文 → 框选 → 自动原位翻译，以及原文切换、连续圈框、文字移动与四角缩放、数字、马赛克、撤销、复制和保存。可暂停、分步查看，也可亲自试用按钮。使用虚构内容和预设译文，图像及视频帧由本程序实际离屏渲染；网页交互为功能示意，不是桌面录屏，不读取你的屏幕或调用 API。
 
 ## 开始使用
 
-1. 下载 `QuickZhScreenshot-1.0.0-win-x64.exe`，放在固定文件夹，双击运行。免安装，OCR 执行器与模型随 EXE 内置，不需要 Python。
+1. 下载 `QuickZhScreenshot-1.0.1-win-x64.exe`，放在固定文件夹，双击运行。免安装，OCR 执行器与模型随 EXE 内置，不需要 Python。
 2. 打开设置，填写自己的 OpenAI 兼容 API 地址、Key 和模型，按需要修改中文翻译提示词。支持 DeepSeek 及兼容服务；API 服务和费用由用户自行选择。
 3. 默认按 **Ctrl+Alt+Q**，拖动选择屏幕上的文字；松开后自动识别并原位翻译。
 4. 用工具栏切换原文 / 译文、添加箭头或文字、连续画圈画框、数字标注或马赛克。复制截图或保存桌面成功后自动关闭浮窗。
@@ -50,7 +52,7 @@ OCR 对艺术字、模糊图片和图文字形混淆仍可能识错。原图是�
 
 `prepare.ps1` 只下载公开资源，核对 SHA-256 后放入 `src/engine.zip`。离线时从资源 Release 下载同一文件并放在该位置。完整源码附件已经包含资源，可直接构建；GitHub 自动生成的源码压缩包则需要先执行准备脚本。
 
-目前自动检查覆盖 **205 项**：本地英俄 OCR、流式 API 与错误处理、坐标与像素保留、连续绘图、移动缩放、数字和马赛克、剪贴板与保存、工具栏换行。默认检查只调用本机 HTTP 模拟服务，不需要真实 API Key。完整桌面鼠标流程、跨电脑实机使用及所有语言均未完成验证。提供的 `--live-*` 验证入口会请求用户配置的真实 API，可能产生费用，CI 不执行这些入口。
+目前自动检查覆盖 **228 项**：本地英俄 OCR、流式 API 与错误处理、坐标与像素保留、连续绘图、移动缩放、数字和马赛克、剪贴板与保存、工具栏换行。默认检查只调用本机 HTTP 模拟服务，不需要真实 API Key。完整桌面鼠标流程、跨电脑实机使用及所有语言均未完成验证。提供的 `--live-*` 验证入口会请求用户配置的真实 API，可能产生费用，CI 不执行这些入口。
 
 [构建说明](docs/开发说明.md) · [验证范围](docs/验证范围.md) · [第三方许可](THIRD_PARTY_NOTICES.md) · [贡献指南](CONTRIBUTING.md) · [安全政策](SECURITY.md)
 

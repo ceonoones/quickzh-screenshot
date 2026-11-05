@@ -12,3 +12,6 @@ __pycache__/
 .env*
 
 src/*.png
+
+# 演示中间帧可由验证入口重建，发布仅保留最终媒体
+site/assets/frames/

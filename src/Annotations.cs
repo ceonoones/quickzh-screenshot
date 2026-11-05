@@ -77,6 +77,8 @@ namespace QuickZh {
         }
     }
     public sealed class CaptureDocument : IDisposable {
+        private Bitmap erasedBackground;
+        private string erasedKey;
         public readonly Bitmap Original;
         public string OriginalText = "", Translation = "", Placeholder = "正在识别文字…";
         public readonly List<OcrBlock> Blocks = new List<OcrBlock>();
@@ -121,7 +123,16 @@ namespace QuickZh {
         private void PaintCore(Graphics g, Size size, bool sourceView, float scroll, Mark pending,Bitmap raster) {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             if (sourceView || Blocks.Count > 0 || String.IsNullOrEmpty(Translation)) {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(Original,new Rectangle(Point.Empty,size));
+                Bitmap background=Original;
+                if (!sourceView && Blocks.Count>0) {
+                    string key=TextErasure.Key(Blocks);
+                    if (erasedBackground==null || erasedKey!=key) {
+                        if (erasedBackground!=null) erasedBackground.Dispose();
+                        erasedBackground=TextErasure.Render(Original,Blocks);erasedKey=key;
+                    }
+                    background=erasedBackground;
+                }
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(background,new Rectangle(Point.Empty,size));
                 if (!sourceView && Blocks.Count > 0) {
                     var layoutState = g.Save(); g.ScaleTransform((float)size.Width/Original.Width,(float)size.Height/Original.Height);
                     foreach (var block in Blocks) if (!String.IsNullOrWhiteSpace(block.Translation)) PaintBlock(g,block);
@@ -169,11 +180,6 @@ namespace QuickZh {
         private static void PaintBlock(Graphics g,OcrBlock block) {
             if (block.Translation.Trim()==block.Text.Trim()) return;
             var saved=g.Save();foreach (var obstacle in block.Obstacles) { var protectedBounds=obstacle;protectedBounds.Inflate(2,2);g.ExcludeClip(Rectangle.Ceiling(protectedBounds)); }
-            var bounds=block.Bounds;
-            using (var background=new SolidBrush(block.Background)) {
-                if (block.Ink.Count>0) foreach (var ink in block.Ink) { var mask=ink;mask.Inflate(2,2);g.FillRectangle(background,mask); }
-                else { var mask=bounds;mask.Inflate(1,1);g.FillRectangle(background,mask); }
-            }
             TranslationLayout.Paint(g,block);
             g.Restore(saved);
         }
@@ -182,6 +188,6 @@ namespace QuickZh {
             using (var g = Graphics.FromImage(result)) Paint(g,result.Size,sourceView,scroll,null);
             return result;
         }
-        public void Dispose() { Original.Dispose(); }
+        public void Dispose() { if (erasedBackground!=null) erasedBackground.Dispose();Original.Dispose(); }
     }
 }

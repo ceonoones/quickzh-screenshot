@@ -84,10 +84,11 @@ namespace QuickZh {
         public Color Background = Color.White, Foreground = Color.Black;
         public float Confidence = 1;
         public bool Bold;
-        public float FontPixels, LineAdvance, GlyphHeight;
+        public float FontPixels, LineAdvance, GlyphHeight, FirstLineHeight;
         public bool IsList;
         public RectangleF LayoutBounds;
         public bool CenterText;
+        public bool CenteredParagraph;
         public readonly List<RectangleF> Ink = new List<RectangleF>();
         public readonly List<RectangleF> Obstacles = new List<RectangleF>();
         internal string LayoutCacheKey;

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="快译截图交互演示：框选外文，中文回到原位，再完成标注、复制与保存。">
+  <title>快译截图 · 看懂，就在原位</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><a class="brand" href="./"><span class="logo">译</span>快译截图 <small>QUICKZH</small></a><nav><button id="settings">设置示例</button><a href="https://github.com/ceonoones/quickzh-screenshot">GitHub ↗</a><a class="download" href="https://github.com/ceonoones/quickzh-screenshot/releases/latest">下载 Windows 版</a></nav></header>
+<main>
+<section class="intro"><div><p class="eyebrow">框选 · 翻译 · 标注</p><h1>看懂，就在原位。</h1><p class="lead">截取一块外文，中文直接回到文字原来的位置。<br>接着圈出重点、写下想法，复制或保存，一次完成。</p></div><div class="intro-note"><span class="live-dot"></span> 可操作的功能演示<p>原图和译图由 Windows 程序实际绘制。<br>网页使用预设译文，不读取屏幕、不调用 API。</p><a href="assets/demo.mp4">观看完整视频 ↗</a></div></section>
+<section class="demo" aria-label="截图翻译交互演示">
+<div class="demo-top"><div class="modes"><button id="tour" class="active">自动演示</button><button id="try">自己试用</button></div><div class="playback"><button id="previous" aria-label="上一步">←</button><button id="pause">暂停</button><button id="next" aria-label="下一步">→</button><button id="restart">从头播放</button></div></div>
+<div class="workspace"><div class="canvas-wrap"><canvas id="canvas" width="1200" height="520" tabindex="0" aria-label="演示截图画布，可拖动画图；Tab 可访问工具栏"></canvas><div id="closed" hidden><span>✓</span><h2 id="closed-title">本次截图已结束</h2><p>在程序中，再按全局快捷键即可开始下一次截图。</p><button id="reopen">重新打开演示画布</button></div><div id="cursor" hidden></div><div id="bubble" role="status" hidden></div></div>
+<div class="toolbar" id="toolbar" role="toolbar" aria-label="截图工具"></div>
+<div class="popover" id="copy-menu" hidden><button data-copy="source">复制原文</button><button data-copy="translated">复制译文</button></div>
+</div>
+<div class="story"><div><span id="step-no">01 / 21</span><h2 id="step-title">外文原图</h2><p id="step-caption">按 Ctrl + Alt + Q，框选想看的内容。</p></div><div id="step-dots" aria-label="跳到演示步骤"></div></div>
+</section>
+<section class="details"><article><b>01 / 原位阅读</b><h3>换一种语言，保留阅读习惯</h3><p>标题、段落与按钮按各自区域排版；图案和装饰尽量保留。随时切换原文，也可以手动保护某一块原图。</p></article><article><b>02 / 顺手标注</b><h3>画圈、写字，接着调整</h3><p>圈框工具连续绘制，文字默认 36 px。切到移动工具，拖动标注或四角缩放；双击文字可以重新编辑。</p></article><article><b>03 / 自己掌握</b><h3>本地识别，接入自己的模型</h3><p>OCR 随 EXE 内置，只把文字交给你配置的大模型。API 地址、提示词、快捷键和托盘选项都能设置。</p></article></section>
+<p class="limits">这是浏览器交互示意，并非桌面录屏。网页不能注册系统热键、设置开机启动或指定桌面保存路径；图片下载到浏览器配置的位置。真实程序支持这些功能。OCR、复杂背景恢复和长译文排版仍有局限，详见仓库说明。</p>
+</main>
+<footer><span>快译截图 · 原创项目，MIT 开源</span><a href="https://github.com/ceonoones/quickzh-screenshot#开始使用">安装与使用 →</a></footer>
+<dialog id="text-dialog"><form method="dialog"><h2>添加 / 编辑文字</h2><label>文字内容<textarea id="text-value" rows="3" maxlength="200">在这里写下你的想法</textarea></label><p>确定后切到移动工具，可拖动文字或四角缩放。</p><div class="dialog-actions"><button value="cancel">取消</button><button class="primary" value="ok">确定</button></div></form></dialog>
+<dialog id="settings-dialog"><form method="dialog"><h2>程序设置 · 示例</h2><p>这里只展示设置项，填写内容不保存、不发送。真实程序在本机保存配置。</p><label>API 地址<input type="url" placeholder="https://example.com/v1"></label><label>API Key<input type="password" placeholder="请在下载的程序中填写自己的 Key" autocomplete="off"></label><label>模型<input placeholder="deepseek-chat"></label><label>翻译提示词<textarea rows="3">请理解上下文，把内容翻译成自然、地道、符合中国人表达习惯的中文。保留原意，不要解释。</textarea></label><label>截图快捷键<input value="Ctrl + Alt + Q"></label><div class="checks"><label><input type="checkbox"> 开机自动启动</label><label><input type="checkbox" checked> 启动后最小化到系统托盘</label></div><div class="dialog-actions"><button class="primary">关闭示例</button></div></form></dialog>
+<script src="demo.js"></script>
+</body></html>
