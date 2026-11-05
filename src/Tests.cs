@@ -52,7 +52,7 @@ namespace QuickZh {
                     Console.WriteLine("LIVE OK " + watch.Elapsed.TotalSeconds.ToString("0.00") + " s: " + text); return 0;
                 } catch (Exception ex) { Console.WriteLine("LIVE: " + ex.Message); return 2; }
             }
-            Environment.SetEnvironmentVariable("SCREENZH_DATA", Path.Combine(Path.GetTempPath(), "quickzh-tests-" + Guid.NewGuid().ToString("N")));
+            Environment.SetEnvironmentVariable("SCREENZH_DATA", Path.Combine(Path.GetTempPath(), "quickzh-tests-路径-" + Guid.NewGuid().ToString("N")));
             if (Array.IndexOf(args,"--ui-sample")>=0 || Array.IndexOf(args,"--render-sample")>=0) {
                 Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Program.AppIcon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
                 var editor=new CaptureEditor(new Bitmap(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"测试样本","导航原图.png")),new Rectangle(80,80,1066,175),new Settings(),0,null,null,new System.Collections.Generic.Dictionary<string,string>(),true);
@@ -128,6 +128,7 @@ namespace QuickZh {
                     string text = Ocr.Recognize(image, "eng+rus", CancellationToken.None);
                     Console.WriteLine("English OCR output: " + text);
                     Check(text.IndexOf("Hello world", StringComparison.OrdinalIgnoreCase) >= 0 && text.Contains("tomorrow"), "English OCR");
+                    Check(Ocr.RecognizeLegacy(image,"eng",CancellationToken.None).Text.Contains("Hello world"), "fallback OCR supports Unicode data directories");
                 }
                 using (var image = MakeImage("Привет, друзья!\nДо встречи завтра.", false)) {
                     string text = Ocr.Recognize(image, "eng+rus", CancellationToken.None);

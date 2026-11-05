@@ -139,7 +139,7 @@ namespace QuickZh {
         }
         internal static OcrResult RecognizeLegacy(Bitmap image, string language, CancellationToken token) {
             Prepare(); token.ThrowIfCancellationRequested();
-            string temp = Path.Combine(Paths.Root, "临时截图-" + Guid.NewGuid().ToString("N") + ".png");
+            string temp = Path.Combine(Paths.Root, "ocr-" + Guid.NewGuid().ToString("N") + ".png");
             try {
                 // Upscale small screen text; keep a white border for Tesseract's line finder.
                 double scale = image.Height < 900 && image.Width < 1800 ? Math.Min(2.0, 3000.0 / Math.Max(image.Width, image.Height)) : 1.0;
@@ -147,8 +147,9 @@ namespace QuickZh {
                     using (var g = Graphics.FromImage(input)) { g.Clear(Color.White); g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(image, new Rectangle(16, 16, input.Width - 32, input.Height - 32)); }
                     input.Save(temp, ImageFormat.Png);
                 }
-                var psi = new ProcessStartInfo(Path.Combine(Paths.Engine, "tesseract.exe"), "\"" + temp + "\" stdout --tessdata-dir \"" + Path.Combine(Paths.Engine, "tessdata") + "\" -l " + language + " --oem 1 --psm 3 -c tessedit_create_tsv=1") {
-                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+                // Keep native argv ASCII on non-Chinese Windows; CreateProcessW handles the Unicode working directory.
+                var psi = new ProcessStartInfo(Path.Combine(Paths.Engine, "tesseract.exe"), "\"../" + Path.GetFileName(temp) + "\" stdout --tessdata-dir tessdata -l " + language + " --oem 1 --psm 3 -c tessedit_create_tsv=1") {
+                    WorkingDirectory = Paths.Engine, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
                     StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
                 };
                 psi.EnvironmentVariables["OMP_THREAD_LIMIT"] = "2";
