@@ -1,0 +1,14 @@
+# 构建产物、离线资源与本机数据
+src/*.exe
+src/*.pdb
+src/engine.zip
+artifacts/
+.tmp/
+*.log
+__pycache__/
+.vs/
+.vscode/
+设置.json*
+.env*
+
+src/*.png

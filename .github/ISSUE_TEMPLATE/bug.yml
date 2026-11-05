@@ -1,0 +1,22 @@
+name: 问题反馈
+description: 报告可以复现的问题（先脱敏）
+body:
+  - type: markdown
+    attributes:
+      value: 请勿上传 API Key、配置文件、私人截图、设备名或个人路径。
+  - type: input
+    id: version
+    attributes:
+      label: 程序版本与 Windows 版本
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、预期行为与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 可选的脱敏样例或错误类别

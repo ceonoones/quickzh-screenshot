@@ -1,0 +1,24 @@
+{
+  "runtime": "https://github.com/hiroi-sora/RapidOCR-json/releases/tag/v0.2.0",
+  "detector": "PP-OCRv4 mobile, native ONNX CPU",
+  "recognizers": "PP-OCRv5 English, East Slavic and Latin; PP-OCRv4 Chinese; PP-OCRv3 Japanese/Korean",
+  "v5_models": "https://huggingface.co/monkt/paddleocr-onnx",
+  "fallback": "Tesseract 5.4 / tessdata_fast for Arabic and native-engine failures",
+  "sha256": {
+    "neural/RapidOCR-json.exe": "616bd43a4672ee9fcf4d1ca607d7d9ec413b45d489482064d97e00a7efa9d76e",
+    "neural/models/ch_PP-OCRv4_det_infer.onnx": "d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9",
+    "neural/models/ch_ppocr_mobile_v2.0_cls_infer.onnx": "e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c",
+    "neural/models/en_v5.onnx": "4e16deb22c4da6468bdca539b2cd3c8687825538b67109177c47d359ab994cd7",
+    "neural/models/en_v5.txt": "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
+    "neural/models/eslav_v5.onnx": "dc6bf0e855247decce214ba6dae5bc135fa0ad725a5918a7fcfb59fad6c9cdee",
+    "neural/models/eslav_v5.txt": "3e95f1581557162870cacdba5af91a4c6be2890710d395b0c3c7578e7ee5e6eb",
+    "neural/models/latin_v5.onnx": "614ffc2d6d3902d360fad7f1b0dd455ee45e877069d14c4e51a99dc4ef144409",
+    "neural/models/latin_v5.txt": "3c0a8a79b612653c25f765271714f71281e4e955962c153e272b7b8c1d2b13ff",
+    "neural/models/rec_ch_PP-OCRv4_infer.onnx": "48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b",
+    "neural/models/dict_chinese.txt": "28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7",
+    "neural/models/rec_japan_PP-OCRv3_infer.onnx": "d234a7591c39d4f5172c918199c81f7cc6a648759b134014940d2aca9b6c8152",
+    "neural/models/dict_japan.txt": "1dcfcb41eec90576a945b3084f22ade11ced506e24f14879245b071698f308e8",
+    "neural/models/rec_korean_PP-OCRv3_infer.onnx": "c7b809fc88ef30b6b5a4bc4daa4703f5809c2bcba8a7ea393d48290a4cf53220",
+    "neural/models/dict_korean.txt": "aa1fdc8ae8f7cd40a0ec4edb472eb0421e11427e6ccfee9915440742c18b0a20"
+  }
+}
